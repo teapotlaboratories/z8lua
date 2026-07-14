@@ -1,0 +1,3 @@
+4cf7de4b034cfa951b7178f1cf598bb1e7be14d2
+# jtothebell/z8lua, branch z8lua-3ds-switch (the fixed-point PICO-8 Lua dialect).
+# Note: that repo's `master` branch tracks vanilla Lua, not z8lua -- do not rebase onto it.
