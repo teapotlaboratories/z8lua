@@ -60,6 +60,18 @@ struct fix32
                                      !std::is_same<T, uint64_t>::value>::type *...>
     inline explicit fix32(T x) : m_bits(int32_t(x << 16)) {}
 
+    // [pico-e32 local patch] Support plain int / unsigned int when they are a
+    // distinct type from the cstdint typedefs (e.g. xtensa-esp-elf, where
+    // int32_t is 'long', leaving plain 'int' uncovered so int->fix32 is
+    // ambiguous). Implicit, like the int32_t ctor above, because Lua does many
+    // implicit int->number conversions. No-op where int == int32_t (e.g. x86).
+    template<typename T,
+             typename std::enable_if<(std::is_same<T, int>::value ||
+                                      std::is_same<T, unsigned int>::value) &&
+                                     !std::is_same<T, int32_t>::value &&
+                                     !std::is_same<T, uint32_t>::value>::type *...>
+    inline fix32(T x) : m_bits(int32_t(int32_t(x) << 16)) {}
+
     // Explicit casts are all allowed
     inline explicit operator int8_t()   const { return m_bits >> 16; }
     inline explicit operator uint8_t()  const { return m_bits >> 16; }
