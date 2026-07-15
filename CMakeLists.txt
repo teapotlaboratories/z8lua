@@ -22,3 +22,9 @@ target_compile_definitions(${COMPONENT_LIB} PUBLIC LUA_USE_LONGJMP)
 
 # Third-party code: silence its warnings so a -Werror project build still passes.
 target_compile_options(${COMPONENT_LIB} PRIVATE -w)
+
+# ESP-IDF compiles with -fno-jump-tables, which turns luaV_execute's ~40-way opcode
+# switch into a linear compare-chain — every bytecode dispatch walks ~20 branches
+# (measured: the dominant per-instruction cost on the S3). Re-enable jump tables +
+# switch conversion for the interpreter so opcode dispatch is O(1). (Later flags win.)
+target_compile_options(${COMPONENT_LIB} PRIVATE -fjump-tables -ftree-switch-conversion)
