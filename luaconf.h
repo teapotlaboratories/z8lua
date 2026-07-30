@@ -597,6 +597,13 @@
 
 #define luai_hashnum(i,n) (i = (n * z8::fix32::frombits(2654435769u)).bits())
 
+/* lua_number2unsigned: without this, llimits.h's generic fallback runs the conversion through a
+** floor()/modulo path in DOUBLE (fix32's implicit operator double), then casts the negative double to
+** unsigned. That cast is well-defined-to-wrap on Xtensa/x86 but RISC-V saturates a negative float to 0
+** (fcvt.wu) — so fix32(-0x1234) rounds-trips to 0 there and luaL_checkversion aborts the VM at boot.
+** Convert via fix32's int32 path instead (integer->unsigned is arch-independent modulo). */
+#define lua_number2unsigned(i,n)	((i)=(LUA_UNSIGNED)(int32_t)(n))
+
 static inline z8::fix32 operator/(z8::fix32 x, int y) { return x / z8::fix32(y); }
 static inline z8::fix32 operator+(int x, z8::fix32 y) { return z8::fix32(x) + y; }
 
