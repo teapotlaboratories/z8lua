@@ -600,16 +600,11 @@ void luaV_finishOp (lua_State *L) {
 #define vmcase(l,b)	case l: {b}  break;
 #define vmcasenb(l,b)	case l: {b}		/* nb = no break */
 
-//turn off optimizations for this method.
-//OP_FORLOOP doesn't correctly detect wrapping in certain cases if optimization is on and aggressive
-#if __clang__
-[[clang::optnone]]
+// NOTE: this used to be pinned to -O0 because OP_FORLOOP's wrap-around guard was defeated by the optimizer —
+// fix32's additive operators had signed-overflow UB, so at -O2 the compiler assumed `old <= old+step` always
+// held and deleted the guard. fix32.h now does that arithmetic in unsigned (defined two's-complement wrap),
+// so the guard survives and the interpreter — the hottest loop in the VM — can run fully optimized again.
 void luaV_execute (lua_State *L) {
-#elif __GNUC__
-void __attribute__((optimize("O0"))) luaV_execute (lua_State *L) {
-#else
-void luaV_execute (lua_State *L) {
-#endif
   CallInfo *ci = L->ci;
   LClosure *cl;
   TValue *k;
