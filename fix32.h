@@ -110,19 +110,23 @@ struct fix32
     inline bool operator <=(fix32 x) const { return m_bits <= x.m_bits; }
     inline bool operator >=(fix32 x) const { return m_bits >= x.m_bits; }
 
-    // Increments
-    inline fix32& operator ++() { m_bits += 0x10000; return *this; }
-    inline fix32& operator --() { m_bits -= 0x10000; return *this; }
+    // Increments. Additive arithmetic is done in UNSIGNED (defined two's-complement wrap) then cast back —
+    // same bit result as the signed form on real targets, but NOT signed-overflow UB. This matters: PICO-8
+    // numbers wrap at +-32768, and OP_FORLOOP's wrap-around guard in lvm.c relies on that wrap being real.
+    // With signed-overflow UB, -O2 assumes it can't happen and deletes the guard (which is why luaV_execute
+    // was pinned to -O0). Defined wrap here lets the interpreter run optimized. See lvm.c OP_FORLOOP.
+    inline fix32& operator ++() { m_bits = int32_t(uint32_t(m_bits) + 0x10000u); return *this; }
+    inline fix32& operator --() { m_bits = int32_t(uint32_t(m_bits) - 0x10000u); return *this; }
     inline fix32 operator ++(int) { fix32 ret = *this; ++*this; return ret; }
     inline fix32 operator --(int) { fix32 ret = *this; --*this; return ret; }
 
     // Math operations
     inline fix32 const &operator +() const { return *this; }
-    inline fix32 operator -() const { return frombits(-m_bits); }
+    inline fix32 operator -() const { return frombits(int32_t(0u - uint32_t(m_bits))); }
     inline fix32 operator ~() const { return frombits(~m_bits); }
 
-    inline fix32 operator +(fix32 x) const { return frombits(m_bits + x.m_bits); }
-    inline fix32 operator -(fix32 x) const { return frombits(m_bits - x.m_bits); }
+    inline fix32 operator +(fix32 x) const { return frombits(int32_t(uint32_t(m_bits) + uint32_t(x.m_bits))); }
+    inline fix32 operator -(fix32 x) const { return frombits(int32_t(uint32_t(m_bits) - uint32_t(x.m_bits))); }
     inline fix32 operator &(fix32 x) const { return frombits(m_bits & x.m_bits); }
     inline fix32 operator |(fix32 x) const { return frombits(m_bits | x.m_bits); }
     inline fix32 operator ^(fix32 x) const { return frombits(m_bits ^ x.m_bits); }
