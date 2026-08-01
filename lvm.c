@@ -656,6 +656,14 @@ void luaV_execute (lua_State *L) {
       )
       vmcase(OP_GETTABUP,
         int b = GETARG_B(i);
+        /* Fast path (backport of 5.3+ luaV_fastget): _ENV/upvalue is almost always a plain table and the
+         * global almost always exists. A raw table hit needs no metamethod (present keys never consult
+         * __index) and no Protect (luaH_get neither reallocs the stack nor runs GC), so skip the
+         * out-of-line call + base reload + sandbox-fallback entirely. Nil/non-table -> unchanged slow path. */
+        if (ttistable(cl->upvals[b]->v)) {
+          const TValue *slot = luaH_get(hvalue(cl->upvals[b]->v), RKC(i));
+          if (!ttisnil(slot)) { setobj2s(L, ra, slot); break; }
+        }
         Protect(luaV_gettable(L, cl->upvals[b]->v, RKC(i), ra));
         // When _ENV is the function upvalue, fall back to the cart sandbox for globals
         // (e.g. for _ENV override in for loops). See OP_GETTABLE for shadowed _ENV locals.
@@ -664,6 +672,13 @@ void luaV_execute (lua_State *L) {
       )
       vmcase(OP_GETTABLE,
         StkId rb = RB(i);
+        /* Fast path (see OP_GETTABUP): a raw table hit returns immediately. A miss/non-table (incl. PICO-8
+         * str[pos] string indexing, __index metamethods, and the nil sandbox-fallback) falls to the slow
+         * path below unchanged — all of those only fire when luaH_get would have returned nil anyway. */
+        if (ttistable(rb)) {
+          const TValue *slot = luaH_get(hvalue(rb), RKC(i));
+          if (!ttisnil(slot)) { setobj2s(L, ra, slot); break; }
+        }
         int pc = pcRel(ci->u.l.savedpc, cl->p);
         int b = GETARG_B(i);
         Protect(luaV_gettable(L, rb, RKC(i), ra));
