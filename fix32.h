@@ -81,7 +81,16 @@ struct fix32
     inline explicit operator uint32_t() const { return m_bits >> 16; }
     inline explicit operator int64_t()  const { return m_bits >> 16; }
     inline explicit operator uint64_t() const { return m_bits >> 16; }
-    
+
+    // [pico-e32 local patch] `int` is a distinct type from every cstdint operator above (int32_t is `long`
+    // on the ESP toolchains), so a bare `int(x)` matches none of them exactly. Overload resolution finds the
+    // int8_t/int16_t promotions equally ranked -> ambiguous -> and silently falls back to the only
+    // non-explicit conversion, `operator double()`. That turns an integer-part extraction (one `srai`)
+    // into a soft-float round-trip (__floatsidf + __muldf3 + __fixdfsi) on every `int(fix32)` — which the
+    // VM does constantly: shift counts (luai_numsh*/rot*), peek/poke addresses (luaV_peek), string index.
+    // An explicit `operator int()` gives `int(x)` an exact match and restores the single shift.
+    inline explicit operator int()      const { return m_bits >> 16; }
+
     // Additional casts for long and unsigned long on architectures where
     // these are not the same types as their cstdint equivalents.
     template<typename T,
